@@ -12,6 +12,8 @@ from .const import DOMAIN, MODES, PLATFORMS
 from .coordinator import EVCoordinator
 from .frontend import async_setup_frontend
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register actions once, independent of loaded entry count."""

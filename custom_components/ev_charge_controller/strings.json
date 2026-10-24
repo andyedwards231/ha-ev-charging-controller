@@ -3,14 +3,18 @@
   "config": {
     "flow_title": "{name}",
     "initiate_flow": {
-      "reconfigure": "Update entity connections"
+      "user": "Configure vehicle charging"
     },
     "step": {
       "user": {
         "title": "Name your controller",
         "description": "Connect one vehicle and its electricity price entities. The controller uses your existing Home Assistant integrations.",
-        "data": {"name": "Controller name"},
-        "data_description": {"name": "A label for this vehicle's charging controller."}
+        "data": {
+          "name": "Controller name"
+        },
+        "data_description": {
+          "name": "A label for this vehicle's charging controller."
+        }
       },
       "vehicle": {
         "title": "Vehicle and home location",
@@ -61,8 +65,12 @@
       "model": {
         "title": "Optional measured charging power",
         "description": "Measured power can improve estimates after stable charging. The configured power model remains the fallback.",
-        "data": {"power_entity": "Wall Connector power sensor (optional)"},
-        "data_description": {"power_entity": "A measured charging power sensor in kW. Preconditioning and short start-up transients are excluded from learning."}
+        "data": {
+          "power_entity": "Wall Connector power sensor (optional)"
+        },
+        "data_description": {
+          "power_entity": "A measured charging power sensor in kW. Preconditioning and short start-up transients are excluded from learning."
+        }
       },
       "preconditioning": {
         "title": "Preconditioning and completion feedback",
@@ -118,7 +126,7 @@
   },
   "options": {
     "initiate_flow": {
-      "options": "Edit charging preferences"
+      "user": "Edit charging preferences"
     },
     "step": {
       "planning": {
