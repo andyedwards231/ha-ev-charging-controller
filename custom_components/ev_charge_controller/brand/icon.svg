@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="EV Charge Controller plug and clock">
+  <g fill="none" stroke="#149DCE" stroke-width="20" stroke-linecap="round">
+    <path d="M78 34V76 M134 34V76 M106 168V218"/>
+  </g>
+  <rect x="44" y="66" width="124" height="116" rx="36" fill="#149DCE"/>
+  <path d="M112 82L78 128H102L94 163L133 114H109Z" fill="#FFFFFF"/>
+  <circle cx="179" cy="175" r="49" fill="#FFFFFF"/>
+  <circle cx="179" cy="175" r="41" fill="#54D6A0"/>
+  <path d="M179 151V176L196 186" fill="none" stroke="#103C50" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

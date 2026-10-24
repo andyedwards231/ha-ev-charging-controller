@@ -1,0 +1,24 @@
+title: EV Charging
+views:
+  - title: Overview
+    path: overview
+    type: panel
+    cards:
+      - type: custom:ev-charge-dashboard
+        page: overview
+        title: EV
+        status_entity: sensor.ev_charge_controller_status
+        plan_entity: sensor.ev_charge_controller_charging_plan
+        mode_entity: select.ev_charge_controller_charging_mode
+        ready_by_entity: datetime.ev_charge_controller_ready_by
+        monitoring_entity: switch.ev_charge_controller_monitoring_only
+        automatic_control_entity: switch.ev_charge_controller_automatic_control
+  - title: Schedule
+    path: schedule
+    type: panel
+    cards:
+      - type: custom:ev-charge-dashboard
+        page: schedule
+        title: EV
+        status_entity: sensor.ev_charge_controller_status
+        plan_entity: sensor.ev_charge_controller_charging_plan

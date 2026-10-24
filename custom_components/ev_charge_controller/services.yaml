@@ -1,0 +1,41 @@
+set_request:
+  name: Set charging request
+  description: Atomically update the planner request without changing the car's own limit.
+  fields:
+    config_entry_id:
+      name: Controller
+      required: true
+      selector:
+        config_entry:
+          integration: ev_charge_controller
+    mode:
+      name: Charging mode
+      selector:
+        select:
+          options:
+            - cheap_top_up
+            - deadline
+            - flexible
+    target_percent:
+      name: Planner target
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+    deadline:
+      name: Ready by
+      selector:
+        datetime: {}
+    max_cheap_rate:
+      name: Maximum cheap rate
+      selector:
+        number:
+          min: -100
+          max: 200
+          step: 0.1
+          unit_of_measurement: p/kWh
+    hard_price_ceiling:
+      name: Hard deadline price ceiling
+      selector:
+        boolean: {}

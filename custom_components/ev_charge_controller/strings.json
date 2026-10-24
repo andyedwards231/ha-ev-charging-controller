@@ -1,0 +1,249 @@
+{
+  "title": "EV Charge Controller",
+  "config": {
+    "flow_title": "{name}",
+    "initiate_flow": {
+      "reconfigure": "Update entity connections"
+    },
+    "step": {
+      "user": {
+        "title": "Name your controller",
+        "description": "Connect one vehicle and its electricity price entities. The controller uses your existing Home Assistant integrations.",
+        "data": {"name": "Controller name"},
+        "data_description": {"name": "A label for this vehicle's charging controller."}
+      },
+      "vehicle": {
+        "title": "Vehicle and home location",
+        "description": "Choose the charging switch and feedback entities for this vehicle. Optional readings improve target and charging estimates.",
+        "data": {
+          "charge_switch": "Charging control switch",
+          "charging_sensor": "Charging feedback sensor",
+          "cable_sensor": "Charge cable sensor",
+          "location_entity": "Vehicle location tracker",
+          "home_zone": "Home zone",
+          "soc_entity": "Battery percentage sensor",
+          "car_limit_entity": "Car charge limit reading (optional)",
+          "current_entity": "Charging current reading (optional)"
+        },
+        "data_description": {
+          "charge_switch": "The switch this integration may control. Only one controller can own a switch.",
+          "charging_sensor": "Confirms whether the vehicle is actively charging; this is separate from the control switch state.",
+          "cable_sensor": "Confirms that the vehicle is physically connected.",
+          "location_entity": "Used to confirm that the vehicle is at home before controlling charging.",
+          "home_zone": "Charging control is allowed only while the vehicle is in this zone.",
+          "soc_entity": "A percentage from 0 to 100 used for planning and target checks.",
+          "car_limit_entity": "Read only. Helps identify a vehicle limit that is below the requested target.",
+          "current_entity": "Used to estimate charging power dynamically. If omitted, the configured fixed power is used."
+        }
+      },
+      "electricity": {
+        "title": "Electricity prices and tariff",
+        "description": "Select the current import rate and published rate events. The tariff attribute must identify the tariff currently served by the price entity.",
+        "data": {
+          "rate_entity": "Current import rate",
+          "today_rates_entity": "Today's published rates",
+          "tomorrow_rates_entity": "Tomorrow's published rates (optional)",
+          "tariff_attribute": "Tariff attribute name",
+          "tariff_match": "Agile tariff match text",
+          "price_unit": "Rate entity price unit",
+          "free_session_entity": "Free electricity calendar (optional)"
+        },
+        "data_description": {
+          "rate_entity": "The live import price used for immediate decisions.",
+          "today_rates_entity": "Published price intervals for today, supplied by your electricity integration.",
+          "tomorrow_rates_entity": "Published price intervals for tomorrow when available.",
+          "tariff_attribute": "The attribute containing the active tariff name, commonly tariff.",
+          "tariff_match": "Charging control is active only when the tariff value contains this text, case-insensitively. Other tariffs are handed back to your existing arrangement.",
+          "price_unit": "Choose the unit reported by the current rate sensor. Prices are normalized internally for planning.",
+          "free_session_entity": "A calendar whose confirmed event times represent free electricity sessions."
+        }
+      },
+      "model": {
+        "title": "Optional measured charging power",
+        "description": "Measured power can improve estimates after stable charging. The configured power model remains the fallback.",
+        "data": {"power_entity": "Wall Connector power sensor (optional)"},
+        "data_description": {"power_entity": "A measured charging power sensor in kW. Preconditioning and short start-up transients are excluded from learning."}
+      },
+      "preconditioning": {
+        "title": "Preconditioning and completion feedback",
+        "description": "The controller observes preconditioning and never schedules or operates vehicle climate control. Completion feedback is optional.",
+        "data": {
+          "preconditioning_entity": "Preconditioning sensor (optional)",
+          "completion_entity": "Charge-complete sensor (optional)",
+          "completion_state": "State that means charging is complete"
+        },
+        "data_description": {
+          "preconditioning_entity": "Used to apply the preconditioning policy selected in options.",
+          "completion_entity": "A sensor that reports a configured completion state.",
+          "completion_state": "Expected completion state text, for example complete."
+        }
+      },
+      "preferences": {
+        "title": "Initial charging preferences",
+        "description": "These preferences are saved separately from entity connections and can be changed later in the integration options.",
+        "data": {
+          "mode": "Charging mode",
+          "max_cheap_rate": "Maximum cheap rate",
+          "target_percent": "Planner target",
+          "deadline": "Ready by (optional)",
+          "hard_price_ceiling": "Enforce the maximum rate as a hard ceiling",
+          "monitoring_only": "Monitoring only",
+          "automatic_control": "Automatic control enabled"
+        },
+        "data_description": {
+          "mode": "Cheap top-up follows the manual price limit; deadline mode plans toward one completion time; flexible mode maintains the target using available cheap periods.",
+          "max_cheap_rate": "Manual maximum in p/kWh for cheap top-up and flexible charging.",
+          "target_percent": "Requested battery percentage for planner modes. The car's own limit is never changed.",
+          "deadline": "Used by deadline mode. Leave empty for the other modes.",
+          "hard_price_ceiling": "When enabled, deadline planning will not select a rate above the manual maximum.",
+          "monitoring_only": "Calculate and explain decisions without changing the charging switch.",
+          "automatic_control": "Allow the integration to change the selected charging switch when its policy requires it."
+        }
+      }
+    },
+    "error": {
+      "required_entity": "Select an entity for this required connection.",
+      "invalid_entity": "The selected entity ID is invalid.",
+      "wrong_entity_domain": "Choose an entity from the domain shown for this field.",
+      "entity_not_found": "This entity no longer exists. Select an entity that is currently available in Home Assistant.",
+      "charge_switch_already_configured": "Another EV Charge Controller already owns this charging switch. Each switch can have one controller.",
+      "required_text": "Enter a value for this field.",
+      "invalid_price_unit": "Choose GBP/kWh or p/kWh.",
+      "deadline_required": "Target by deadline mode needs a ready-by date and time.",
+      "invalid_deadline": "Enter a valid date and time."
+    },
+    "abort": {
+      "already_configured": "This controller is already configured."
+    }
+  },
+  "options": {
+    "initiate_flow": {
+      "options": "Edit charging preferences"
+    },
+    "step": {
+      "planning": {
+        "title": "Charging preferences",
+        "description": "Set the charging strategy, manual price limit, target and deadline policy.",
+        "data": {
+          "mode": "Charging mode",
+          "max_cheap_rate": "Maximum cheap rate",
+          "target_percent": "Planner target",
+          "deadline": "Ready by (optional)",
+          "hard_price_ceiling": "Enforce the maximum rate as a hard ceiling"
+        },
+        "data_description": {
+          "mode": "Cheap top-up follows the manual price limit; deadline mode plans toward one completion time; flexible mode maintains the target using available cheap periods.",
+          "max_cheap_rate": "Manual maximum in p/kWh for cheap top-up and flexible charging.",
+          "target_percent": "Requested battery percentage. The car's own charge limit is never changed.",
+          "deadline": "Used by deadline mode. Clearing this field removes the saved deadline.",
+          "hard_price_ceiling": "When enabled, deadline planning will not select a rate above the manual maximum."
+        }
+      },
+      "model": {
+        "title": "Charging model",
+        "description": "These are planning assumptions. Measured current and stable measured power can refine the estimate.",
+        "data": {
+          "capacity_kwh": "Usable battery capacity",
+          "voltage": "Assumed charging voltage",
+          "efficiency": "Charging efficiency",
+          "fixed_power_kw": "Fallback charging power",
+          "learn_power": "Learn charging power from stable sessions",
+          "planning_margin": "Conservative planning margin",
+          "maintenance_margin": "Flexible mode restart margin"
+        },
+        "data_description": {
+          "capacity_kwh": "Estimated usable battery capacity in kWh. The supplied starting assumption is 60 kWh.",
+          "voltage": "Assumed voltage used with the charging current reading. The supplied starting assumption is 230 V.",
+          "efficiency": "Estimated fraction of grid energy stored in the battery. The supplied starting assumption is 0.92.",
+          "fixed_power_kw": "Used when no charging-current entity is selected.",
+          "learn_power": "When enabled, use stable measured charging sessions to refine the power estimate. Preconditioning and short start-up transients are excluded; the configured model remains the fallback.",
+          "planning_margin": "Extra time allowed for taper, delays and model uncertainty, expressed as a fraction from 0 to 0.5.",
+          "maintenance_margin": "Flexible mode may resume charging when the battery falls this many percentage points below target."
+        }
+      },
+      "preconditioning": {
+        "title": "Preconditioning policy",
+        "description": "This integration observes your existing preconditioning automation. It does not operate climate control.",
+        "data": {
+          "preconditioning_policy": "Charging exception policy",
+          "preconditioning_minutes": "Maximum exception duration"
+        },
+        "data_description": {
+          "preconditioning_policy": "Disabled adds no preconditioning exception; keep existing permits an already allowed charge to continue; allow permits charging while preconditioning is active.",
+          "preconditioning_minutes": "An exception ends after this many minutes even if the sensor remains active. It can use grid power and may charge up to the car's own limit."
+        }
+      },
+      "control": {
+        "title": "Control and overrides",
+        "description": "Choose how the controller handles manual switch changes, monitoring and temporary boost sessions.",
+        "data": {
+          "automatic_control": "Automatic control enabled",
+          "monitoring_only": "Monitoring only",
+          "boost_hours": "Boost timeout",
+          "external_change_policy": "Unexpected switch change policy",
+          "manual_hold_minutes": "Manual hold duration"
+        },
+        "data_description": {
+          "automatic_control": "Allow the integration to change the selected charging switch when its policy requires it.",
+          "monitoring_only": "Calculate and explain decisions without changing the charging switch.",
+          "boost_hours": "Maximum boost duration. Boost still observes connection, home, tariff and vehicle safety checks.",
+          "external_change_policy": "Respect stops the first unrequested charge start. A second start within 2 minutes, or switching charging off during a wanted charge, creates a temporary manual hold. Enforce resumes policy control after the acknowledgement window.",
+          "manual_hold_minutes": "How long a detected manual change inhibits commands, unless resumed or unplugged sooner."
+        }
+      },
+      "reliability": {
+        "title": "Retries and input freshness",
+        "description": "Bounded retries handle delayed switch feedback. Freshness limits apply to vehicle readings that expose useful telemetry timestamps.",
+        "data": {
+          "max_retries": "Maximum command retries",
+          "retry_seconds": "Delay between retries",
+          "stale_minutes": "Vehicle reading freshness limit"
+        },
+        "data_description": {
+          "max_retries": "Maximum retry attempts for an unconfirmed command.",
+          "retry_seconds": "Base delay before retrying an unconfirmed command.",
+          "stale_minutes": "Readings older than this are treated as stale when the source provides a freshness timestamp."
+        }
+      }
+    },
+    "error": {
+      "invalid_number": "Enter a finite value within the allowed range.",
+      "deadline_required": "Target by deadline mode needs a ready-by date and time.",
+      "invalid_deadline": "Enter a valid date and time."
+    }
+  },
+  "selector": {
+    "mode": {
+      "options": {
+        "cheap_top_up": "Cheap top-up",
+        "deadline": "Target by deadline",
+        "flexible": "Flexible target"
+      }
+    },
+    "preconditioning_policy": {
+      "options": {
+        "disabled": "No charging exception",
+        "keep_existing": "Keep an existing permitted charge running",
+        "allow": "Permit charging during preconditioning"
+      }
+    },
+    "external_change_policy": {
+      "options": {
+        "respect": "Respect manual changes",
+        "enforce": "Enforce controller policy"
+      }
+    }
+  },
+  "entity": {
+    "select": {
+      "mode": {
+        "name": "Charging mode",
+        "state": {
+          "cheap_top_up": "Cheap top-up",
+          "deadline": "Target by deadline",
+          "flexible": "Flexible target"
+        }
+      }
+    }
+  }
+}

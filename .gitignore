@@ -1,0 +1,13 @@
+.venv/
+.bootstrap/
+.runtime/
+.uv-cache/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+dist/
+
+.DS_Store
+node_modules
+tests/frontend/artifacts/

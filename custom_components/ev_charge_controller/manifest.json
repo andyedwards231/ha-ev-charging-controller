@@ -1,0 +1,21 @@
+{
+  "domain": "ev_charge_controller",
+  "name": "EV Charge Controller",
+  "codeowners": [
+    "@andyedwards231"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http"
+  ],
+  "documentation": "https://github.com/andyedwards231/ha-ev-charging-controller",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/andyedwards231/ha-ev-charging-controller/issues",
+  "requirements": [],
+  "version": "0.2.0",
+  "after_dependencies": [
+    "tessie"
+  ]
+}
