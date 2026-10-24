@@ -42,7 +42,9 @@ Deadline mode may exceed the normal cheap-rate ceiling unless the hard ceiling i
 
 Boost temporarily bypasses price and slots within home, cable, tariff and vehicle checks. It ends at completion, cancellation, unplugging or timeout. Preconditioning is observed, rather than scheduled, with optional bounded charging exceptions.
 
-The managed-tariff match defaults to `AGILE`. Other or unknown tariffs release control without operating the switch. This does not enable another controller. By default an unrequested charge start is stopped; a confirmed repeated start within two minutes, or a manual stop during wanted charging, creates a temporary hold. Resume clears it.
+The managed-tariff match defaults to `AGILE`. Other or unknown tariffs release control without operating the switch. This does not enable another controller. By default an unrequested charge start is stopped; a confirmed repeated start within two minutes, or a manual stop after charging is confirmed, creates a temporary hold. Resume clears it.
+
+While a start is awaiting confirmation, Tessie can briefly report the old off state. Those reports do not create a hold, and bounded start retries remain active. An app or vehicle stop during this interval cannot be distinguished from an old report. An explicit Home Assistant user stop still creates a hold immediately. Turning Automatic control off cancels pending commands and leaves the observed charging state unchanged.
 
 Automatic control off leaves observed charging unchanged. Monitoring only sends no charging commands. Active commands use bounded retries and require observed feedback; service acknowledgement is not confirmation. Review [migration](MIGRATION.md) before enabling active control alongside another charging arrangement.
 

@@ -10,7 +10,7 @@ from types import MappingProxyType
 import pytest
 import pytest_asyncio
 from homeassistant.config_entries import SOURCE_USER, ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Context, HomeAssistant
 
 COMPONENT_ROOT = Path(__file__).parents[1] / "custom_components"
 sys.path.insert(0, str(COMPONENT_ROOT))
@@ -476,6 +476,95 @@ async def test_malformed_forecast_never_starts_target_charging(hass):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["deadline", "flexible"])
+async def test_malformed_forecast_stops_owned_target_charge(hass, mode):
+    coordinator, calls, _, _ = await make_coordinator(
+        hass,
+        options={
+            "mode": mode,
+            "monitoring_only": False,
+            "target_percent": 80,
+            "deadline": (datetime.now(UTC) + timedelta(hours=4)).isoformat(),
+        },
+        seed_kwargs={"switch": "on", "charging": "on"},
+    )
+    try:
+        assert coordinator.owns_charge is True
+        assert calls == []
+        hass.states.async_set(
+            ENTITY["today_rates_entity"],
+            "on",
+            {"rates": [{"start": "invalid", "end": "invalid", "value": 0.01}]},
+        )
+        await coordinator.async_reconcile()
+        assert coordinator.decision.status == "Planner unavailable"
+        assert coordinator.decision.desired is False
+        assert calls == [("turn_off", ENTITY["charge_switch"])]
+    finally:
+        await coordinator.async_shutdown()
+
+
+@pytest.mark.asyncio
+async def test_completed_deadline_latch_stops_charge_after_soc_falls(hass):
+    coordinator, calls, _, _ = await make_coordinator(
+        hass,
+        options={
+            "mode": "deadline",
+            "monitoring_only": False,
+            "target_percent": 80,
+            "deadline": (datetime.now(UTC) + timedelta(hours=4)).isoformat(),
+        },
+        seed_kwargs={"switch": "on", "charging": "on", "soc": "75"},
+    )
+    try:
+        assert coordinator.owns_charge is True
+        assert calls == []
+        coordinator.request_completed = True
+        await coordinator.async_reconcile()
+        assert coordinator.decision.status == "Target reached"
+        assert coordinator.decision.desired is False
+        assert calls == [("turn_off", ENTITY["charge_switch"])]
+    finally:
+        await coordinator.async_shutdown()
+
+
+@pytest.mark.asyncio
+async def test_fresh_invalid_power_does_not_adopt_an_unowned_target_charge(hass, monkeypatch):
+    coordinator, calls, _, _ = await make_coordinator(
+        hass,
+        options={
+            "mode": "deadline",
+            "monitoring_only": True,
+            "deadline": (datetime.now(UTC) - timedelta(minutes=1)).isoformat(),
+        },
+        seed_kwargs={"switch": "on", "charging": "on"},
+    )
+    try:
+        assert coordinator.owns_charge is False
+        assert calls == []
+        coordinator.preferences["monitoring_only"] = False
+        original_read = coordinator._read
+        read_count = 0
+
+        def read_with_unavailable_current(now):
+            nonlocal read_count
+            read_count += 1
+            if read_count == 2:
+                hass.states.async_set(ENTITY["current_entity"], "unavailable")
+            return original_read(now)
+
+        monkeypatch.setattr(coordinator, "_read", read_with_unavailable_current)
+        await coordinator.async_reconcile()
+        # Authority must still be valid immediately before either command.
+        assert coordinator.decision.desired is False
+        assert read_count == 2
+        assert calls == []
+        assert coordinator.pending is None
+    finally:
+        await coordinator.async_shutdown()
+
+
+@pytest.mark.asyncio
 async def test_second_start_within_two_minutes_creates_manual_hold(hass):
     coordinator, calls, _, _ = await make_coordinator(
         hass,
@@ -496,6 +585,53 @@ async def test_second_start_within_two_minutes_creates_manual_hold(hass):
     assert coordinator.pending is None
     assert calls == []
     await coordinator.async_shutdown()
+
+
+@pytest.mark.asyncio
+async def test_unconfirmed_start_feedback_does_not_create_manual_hold(hass):
+    coordinator, calls, _, _ = await make_coordinator(hass, options={"monitoring_only": False})
+    try:
+        assert calls == [("turn_on", ENTITY["charge_switch"])]
+        # An optimistic switch update can precede the car's actual feedback.
+        hass.states.async_set(ENTITY["charge_switch"], "on")
+        await hass.async_block_till_done()
+        await coordinator.async_reconcile()
+        assert coordinator.pending["desired"] is True
+        assert coordinator.owns_charge is False
+
+        # A subsequent cloud poll still reporting off is not a manual stop.
+        hass.states.async_set(ENTITY["charge_switch"], "off")
+        await hass.async_block_till_done()
+        assert coordinator.manual_hold_until is None
+        assert coordinator.pending["desired"] is True
+
+        hass.states.async_set(ENTITY["charge_switch"], "on")
+        hass.states.async_set(ENTITY["charging_sensor"], "on")
+        await hass.async_block_till_done()
+        await coordinator.async_reconcile()
+        assert coordinator.pending is None
+        assert coordinator.owns_charge is True
+        assert coordinator.last_command["result"] == "confirmed"
+        assert calls == [("turn_on", ENTITY["charge_switch"])]
+    finally:
+        await coordinator.async_shutdown()
+
+
+@pytest.mark.asyncio
+async def test_explicit_user_stop_during_pending_start_still_holds(hass):
+    coordinator, calls, _, _ = await make_coordinator(hass, options={"monitoring_only": False})
+    try:
+        hass.states.async_set(ENTITY["charge_switch"], "on")
+        await hass.async_block_till_done()
+        hass.states.async_set(
+            ENTITY["charge_switch"], "off", context=Context(user_id="test-user")
+        )
+        await hass.async_block_till_done()
+        assert coordinator.manual_hold_until is not None
+        assert coordinator.pending is None
+        assert calls == [("turn_on", ENTITY["charge_switch"])]
+    finally:
+        await coordinator.async_shutdown()
 
 
 @pytest.mark.asyncio

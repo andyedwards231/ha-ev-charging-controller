@@ -193,6 +193,10 @@ class EVCoordinator(DataUpdateCoordinator):
                 and value is False
                 and not expected
                 and self.decision.desired is True
+                # Tessie can optimistically report on, then poll the old off
+                # state before charging starts. Keep awaiting confirmation;
+                # an explicit HA user action still takes effect immediately.
+                and (self.pending is None or new.context.user_id is not None)
                 and self._external_change_context()
             ):
                 self._begin_manual_hold(now)
@@ -481,6 +485,45 @@ class EVCoordinator(DataUpdateCoordinator):
         )
         return snapshot, rates, power, power_valid, end, free_end, rates_error, rates_warning, rates_complete, amps
 
+    def _control_decision(self, snap, intent, plan, power_valid, rates_error):
+        """Apply the same control rules when planning and before dispatch."""
+        decision = decide(snap, intent, plan)
+        # Completion is the car's explicit state, not absence of current.
+        if snap.complete and decision.desired is True and not snap.preconditioning:
+            decision = Decision(
+                False,
+                "Car charge complete",
+                "The car reports charging complete.",
+                clear_boost=True,
+            )
+        if (
+            intent.mode in ("deadline", "flexible")
+            and (rates_error or not power_valid)
+            and not self.boost_until
+            and not (snap.preconditioning and decision.desired is True)
+            and decision.desired is not None
+        ):
+            decision = Decision(
+                False if snap.owns_charge and snap.switch_on else None,
+                "Planner unavailable",
+                rates_error or "Charging current is unavailable or zero.",
+                problem=True,
+            )
+        if (
+            self.request_completed
+            and intent.mode == "deadline"
+            and decision.desired is not None
+            and (not self.boost_until or decision.clear_boost)
+            and not (snap.preconditioning and decision.desired is True)
+        ):
+            decision = Decision(
+                False if snap.home is True and snap.connected is True else None,
+                "Target reached",
+                "The deadline request is complete; change the request to charge again.",
+                clear_boost=decision.clear_boost,
+            )
+        return decision
+
     async def async_reconcile(self):
         async with self.lock:
             if self.closed:
@@ -552,32 +595,6 @@ class EVCoordinator(DataUpdateCoordinator):
                     rates_warning = "; ".join(
                         part for part in (rates_warning, deadline_warning) if part
                     )
-            decision = decide(snap, intent, self.plan)
-            # Completion is the car's explicit state, not absence of current.
-            if snap.complete and decision.desired is True and not snap.preconditioning:
-                decision = Decision(
-                    False,
-                    "Car charge complete",
-                    "The car reports charging complete.",
-                    clear_boost=True,
-                )
-            if (
-                intent.mode in ("deadline", "flexible")
-                and (rates_error or not power_valid)
-                and not self.boost_until
-                and not (snap.preconditioning and decision.desired is True)
-                and decision.desired is not None
-            ):
-                decision = Decision(
-                    False if snap.owns_charge and snap.switch_on else None,
-                    "Planner unavailable",
-                    rates_error or "Charging current is unavailable or zero.",
-                    problem=True,
-                )
-            if decision.clear_boost and self.boost_until:
-                self.boost_until = None
-                self.boost_target = None
-                self._persist()
             planner_reached = snap.soc is not None and snap.soc >= intent.target_percent
             if intent.mode == "flexible" and planner_reached:
                 self.maintenance_satisfied = True
@@ -591,18 +608,11 @@ class EVCoordinator(DataUpdateCoordinator):
             if intent.mode == "deadline" and planner_reached:
                 self.request_completed = True
                 self._persist()
-            if (
-                self.request_completed
-                and intent.mode == "deadline"
-                and decision.desired is not None
-                and not self.boost_until
-                and not (snap.preconditioning and decision.desired is True)
-            ):
-                decision = Decision(
-                    False if snap.home is True and snap.connected is True else None,
-                    "Target reached",
-                    "The deadline request is complete; change the request to charge again.",
-                )
+            decision = self._control_decision(snap, intent, self.plan, power_valid, rates_error)
+            if decision.clear_boost and self.boost_until:
+                self.boost_until = None
+                self.boost_target = None
+                self._persist()
             if rates_warning:
                 decision = Decision(
                     decision.desired,
@@ -706,7 +716,9 @@ class EVCoordinator(DataUpdateCoordinator):
                 latest.car_limit,
                 latest_plan.slots if latest_plan else (),
             )
-        latest_decision = decide(latest, latest_intent, latest_plan)
+        latest_decision = self._control_decision(
+            latest, latest_intent, latest_plan, latest_power_valid, latest_error
+        )
         if (
             latest_intent.monitoring_only
             or not latest_intent.automatic_control
