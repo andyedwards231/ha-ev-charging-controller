@@ -1,0 +1,67 @@
+# EV Charge Controller
+
+A Home Assistant integration for tariff-aware EV charging using existing Octopus Energy and Tessie entities. It plans around published prices, follows your requested charging current and explains why it is charging or waiting.
+
+**Requires Home Assistant 2026.10.0 or later.** The default is monitoring only: decisions are calculated without operating the charging switch. Existing provider integrations handle cloud connectivity; no additional credentials are required.
+
+## Features
+
+| Mode | Behaviour |
+| --- | --- |
+| Cheap top-up | Charge whenever the valid live rate is below your maximum, up to the car's limit. |
+| Charge by deadline | Choose the cheapest published periods needed for a battery target and ready-by time. |
+| Flexible target | Reach and maintain a battery target using eligible cheap periods, without a deadline. |
+
+The two-tab dashboard shows current battery and charging feedback, battery and cost forecasts, published prices and charging windows. The Schedule tab saves mode, target, rate and deadline together.
+
+Missing future prices leave a provisional plan using valid published intervals. It warns about incomplete coverage and replans as rates arrive. Unknown periods are never treated as free electricity. A target above the car's limit is reported without changing that limit.
+
+Tesla/Tessie's requested amps determine charging speed. Lower current produces a longer plan. The integration never changes current, charge limit or climate settings. Optional measured-power learning scales with the current setting.
+
+## Install with HACS
+
+1. Add `https://github.com/andyedwards231/ha-ev-charging-controller` under HACS **Custom repositories**, with type **Integration**.
+2. Download **EV Charge Controller** and restart Home Assistant.
+3. Open **Settings → Devices & services → Add integration → EV Charge Controller**. Select your existing vehicle and tariff entities using [SETUP.md](SETUP.md).
+4. Keep **Monitoring only** enabled while checking the plan and observed feedback.
+5. Create the dashboard once using [the dashboard guide](docs/dashboard.md).
+
+[Add this repository to HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=andyedwards231&repository=ha-ev-charging-controller&category=integration)
+
+The repository must be public for HACS. New published releases appear as updates; install the update and restart Home Assistant. Bundled dashboard code updates with the integration. Saved dashboard YAML and integration settings are retained.
+
+For an existing manual installation, HACS manages the same component directory and domain. Do not remove and recreate the integration. See [migration](MIGRATION.md).
+
+For manual installation, copy the release archive's `custom_components/ev_charge_controller` folder into your configuration's `custom_components` folder and restart Home Assistant. Copy only this integration folder.
+
+## Model and control
+
+Defaults assume 60 kWh usable capacity, 230 V, 92% efficiency and a 10% planning margin. These are editable model assumptions. A configured current entity supplies requested amps; otherwise fixed power is used. The current model assumes single-phase AC charging.
+
+Deadline mode may exceed the normal cheap-rate ceiling unless the hard ceiling is enabled. Insufficient eligible periods produce a visible shortfall. Completed deadline requests remain complete until changed; flexible mode uses a restart margin. Missing or expired live prices prevent new price-based starts.
+
+Boost temporarily bypasses price and slots within home, cable, tariff and vehicle checks. It ends at completion, cancellation, unplugging or timeout. Preconditioning is observed, rather than scheduled, with optional bounded charging exceptions.
+
+The managed-tariff match defaults to `AGILE`. Other or unknown tariffs release control without operating the switch. This does not enable another controller. By default an unrequested charge start is stopped; a confirmed repeated start within two minutes, or a manual stop during wanted charging, creates a temporary hold. Resume clears it.
+
+Automatic control off leaves observed charging unchanged. Monitoring only sends no charging commands. Active commands use bounded retries and require observed feedback; service acknowledgement is not confirmation. Review [migration](MIGRATION.md) before enabling active control alongside another charging arrangement.
+
+## Efficiency and forecasts
+
+There are no direct cloud requests. Charts use existing Home Assistant updates and SVGs, with no history queries or animation loop. The backend uses event and boundary updates plus a 30-second reconciliation timer. Forecast arrays are cached, bounded to seven days and 400 points/intervals, and appear only on the plan entity. Active projections refresh within five minutes; changed battery, rates and settings are reflected immediately.
+
+Forecast cost means remaining estimated grid electricity, including losses and margin. It excludes previously used energy and standing charges. Disconnection, monitoring, pauses and overrides are labelled as conditional forecasts.
+
+## Development and releases
+
+```sh
+uv sync --extra dev
+uv run pytest
+uv run ruff check custom_components tests package.py
+npm ci
+npx playwright install --with-deps chromium
+npm test
+uv run python package.py
+```
+
+CI runs Python and frontend tests, Hassfest and HACS validation. Update manifest and project versions, then publish a `v<version>` tag or run the Release workflow. It validates first, checks the tag and builds a versioned archive. See [verification](VERIFICATION.md) for testing limits.
