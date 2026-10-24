@@ -1,7 +1,7 @@
 """Constants for EV Charge Controller."""
 
 DOMAIN = "ev_charge_controller"
-VERSION = "0.1.1"
+VERSION = "0.3.0"
 PLATFORMS = [
     "switch",
     "number",

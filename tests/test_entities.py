@@ -7,7 +7,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import pytest_asyncio
@@ -304,18 +304,24 @@ async def test_integration_setup_and_unload_use_platform_lifecycle_and_memory_st
     entry = make_entry("lifecycle-test")
     forward = AsyncMock(return_value=None)
     unload = AsyncMock(return_value=True)
+    panel_setup = AsyncMock()
+    panel_unload = Mock()
     manager = SimpleNamespace(async_forward_entry_setups=forward, async_unload_platforms=unload)
     monkeypatch.setattr(hass, "config_entries", manager)
+    monkeypatch.setattr(integration, "async_setup_panel", panel_setup)
+    monkeypatch.setattr(integration, "async_unload_panel_entry", panel_unload)
 
     assert await integration.async_setup_entry(hass, entry) is True
     coordinator = entry.runtime_data
     assert coordinator_module.Store is MemoryStore
     assert coordinator.closed is False
     forward.assert_awaited_once_with(entry, PLATFORMS)
+    panel_setup.assert_awaited_once_with(hass, entry.entry_id)
 
     assert await integration.async_unload_entry(hass, entry) is True
     assert coordinator.closed is True
     unload.assert_awaited_once_with(entry, PLATFORMS)
+    panel_unload.assert_called_once_with(hass, entry.entry_id)
     assert f"{DOMAIN}.{entry.entry_id}.intent" in MemoryStore.records
 
 
@@ -323,10 +329,13 @@ async def test_integration_setup_and_unload_use_platform_lifecycle_and_memory_st
 async def test_integration_setup_failure_shuts_down_coordinator(hass, monkeypatch):
     entry = make_entry("failed-setup-test")
     forward = AsyncMock(side_effect=RuntimeError("platform setup failed"))
+    panel_setup = AsyncMock()
     monkeypatch.setattr(hass, "config_entries", SimpleNamespace(async_forward_entry_setups=forward))
+    monkeypatch.setattr(integration, "async_setup_panel", panel_setup)
 
     with pytest.raises(RuntimeError, match="platform setup failed"):
         await integration.async_setup_entry(hass, entry)
+    panel_setup.assert_not_awaited()
     assert entry.runtime_data.closed is True
     assert f"{DOMAIN}.{entry.entry_id}.intent" in MemoryStore.records
 
@@ -370,6 +379,7 @@ async def test_failed_platform_unload_keeps_coordinator_running(hass, monkeypatc
             async_unload_platforms=AsyncMock(return_value=False),
         ),
     )
+    monkeypatch.setattr(integration, "async_setup_panel", AsyncMock())
     await integration.async_setup_entry(hass, entry)
     assert await integration.async_unload_entry(hass, entry) is False
     assert entry.runtime_data.closed is False

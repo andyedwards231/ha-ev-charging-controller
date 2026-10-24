@@ -2,13 +2,11 @@
 
 ## Manual installation to HACS
 
-Add the repository as an Integration, download and restart Home Assistant. The domain and unique IDs remain the same; config entries and saved preferences are retained. Keep the previous component folder if you want a manual rollback.
+Add the repository to HACS as an Integration, download the update and restart Home Assistant. The integration domain, unique IDs and saved config entries remain the same. HACS manages the same component directory, so do not remove and recreate the integration. Keep the previous component folder if you want a manual rollback.
 
-Dashboard code now lives under `custom_components/ev_charge_controller/frontend/`. The integration serves and loads it without editing Lovelace configuration. HACS updates Python and frontend files together. Create or update the dashboard once using [the example](examples/dashboard.yaml).
+The integration now registers the EV Charging sidebar panel at `/ev-charging` automatically. Overview and Schedule are available without creating a dashboard or registering Lovelace resources. After an HACS update, restart Home Assistant and refresh the browser so the updated panel code loads.
 
-After switching, older manually registered `/local/ev-charge-controller/` resources can be removed from Settings → Dashboards → Resources. Existing compact-card dashboards can load `/ev_charge_controller_static/ev-charge-controller-card.js` manually instead. The new Schedule page uses its own bundled control element and does not depend on an older registered card.
-
-HACS retains saved dashboard YAML. Changes to the example layout may need a manual edit. Bundled JavaScript URLs are fingerprinted at startup, so updated code loads after restart and browser refresh.
+Existing Lovelace dashboards and saved YAML are retained. If you previously installed the older standalone frontend, its manually registered `/local/ev-charge-controller/` resources can be removed from Settings → Dashboards → Resources after confirming that no custom dashboard still uses them. The optional [legacy dashboard example](examples/dashboard.yaml) remains available for custom Lovelace layouts.
 
 ## Other charging controllers
 

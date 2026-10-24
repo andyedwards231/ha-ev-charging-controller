@@ -1,18 +1,12 @@
-# EV Charging dashboard
+# EV Charging panel
 
-The dashboard ships with the integration. No separate frontend HACS repository, `www` copy or manual resource registration is needed.
+After the integration is installed and Home Assistant is restarted, EV Charging appears in the sidebar at `/ev-charging`. It is a native Home Assistant panel with Overview and Schedule tabs. There is no dashboard to create, YAML to paste, or Lovelace resource to register.
 
-## One-time setup
+The panel discovers entities by registry and scopes them to the integration entry you select. This supports installations with multiple configured vehicles without embedding vehicle-specific entity IDs in the panel. Select another entry to view its vehicle and tariff setup.
 
-1. Install the integration and restart Home Assistant.
-2. Create an empty dashboard under Settings → Dashboards, named EV Charging, with an address such as `ev-charging` and sidebar access enabled.
-3. Paste [examples/dashboard.yaml](../examples/dashboard.yaml) into its raw configuration editor.
-4. Check the entity IDs against your controller's device page. The example uses default controller names; select your actual entities if they differ.
-5. Save and refresh the browser.
+## Overview
 
-Overview and Schedule are native tabs using full-width panel views. The integration loads the dashboard module at startup. Scheduling discovers related controls and the integration entry from the selected Status sensor.
-
-## Forecasts
+Overview uses a dark slate and teal presentation, and also supports Home Assistant's light theme. It shows current state of charge, charging feedback and published price windows, with conditional battery, cost and price charts when forecast data is available. Charging windows are labelled with their status and price. The forecast uses the integration's cached, bounded plan data.
 
 Battery and cost curves start from the current reading and use configured efficiency and margin. Cost is remaining estimated grid electricity, excluding previous consumption and standing charges. Negative prices can make cost fall.
 
@@ -22,12 +16,20 @@ Unknown periods stay blank. The battery forecast is labelled at the available ho
 
 Forecasts assume the car is home and connected for the windows. Monitoring, pauses, disconnection, away, manual hold and boost are labelled. During boost the charts show the saved price-based request. Completed deadlines and satisfied flexible maintenance stay flat until the relevant request or maintenance state changes.
 
-## Scheduling and updates
+## Schedule and controls
 
-Choose a mode, target, rate and ready-by time where applicable. Apply saves fields together. Boost applies immediately within the controller's safety checks. Requested current comes from Tesla/Tessie; change it there and the plan recalculates. The integration does not change amps or the car limit.
+Choose Cheap top-up, Charge by deadline or Flexible target. The schedule includes target, ready-by time, maximum cheap rate and an optional hard rate ceiling. The hard ceiling prevents deadline charging above that rate. Saving applies the request fields together; Reset drafts restores the saved request values.
 
-HACS updates integration and dashboard code together. Restart Home Assistant and refresh the browser. Saved dashboard YAML is retained; example layout changes may need manual application.
+Requested charging amps are read from Tesla/Tessie and displayed without controls to change them. Change current in the vehicle integration; the plan recalculates from its updates. The integration does not change amps or the car limit.
 
-There are no extra car requests, history queries or frontend polling loops. Unrelated state changes do not rebuild Overview. Forecast arrays are cached and bounded. Optionally exclude your Charging plan sensor from Recorder if you do not want historical snapshots of its attributes.
+Boost is a separate immediate action subject to the controller's safety checks. Automatic pause and resume, monitoring-only and automatic-control controls are shown separately from the schedule. These states affect the forecast and command behaviour as described by the integration.
 
-For a local simulated preview, serve the repository with `python -m http.server` and open `/tests/frontend/preview.html`. It has no Home Assistant connection; its extra toolbar is only for testing.
+## Updates and optional Lovelace example
+
+HACS updates integration and panel code together. Install the update, restart Home Assistant and refresh the browser to load the new panel code. Integration settings and any existing Lovelace YAML are retained.
+
+The integration discovers entities from Home Assistant's entity registry and listens for updates to relevant states. It adds no frontend polling, history queries or car requests. Unrelated state changes do not rebuild the panel. Forecast arrays are bounded and cached by the integration. Optionally exclude your Charging plan sensor from Recorder if you do not want historical snapshots of its attributes.
+
+For users who want to place a card on a custom Lovelace dashboard, [examples/dashboard.yaml](../examples/dashboard.yaml) is an optional legacy example. It uses the bundled card and default entity IDs; update those IDs for your installation. The native sidebar panel does not depend on this YAML.
+
+For a local simulated preview, serve the repository with `python -m http.server` and open `/tests/frontend/panel-preview.html`. It has no Home Assistant connection; its extra toolbar is only for development. The optional legacy card preview remains at `/tests/frontend/preview.html`.

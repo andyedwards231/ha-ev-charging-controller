@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>EV Charge Controller · native panel preview</title>
+  <style>
+    :root{color-scheme:dark;--bg:#111820;--surface:#1b2732;--surface-2:#222f3b;--text:#e8edf3;--muted:#a6b3bf;--line:#364552;--accent:#4bb7d2;--good:#4fc59a;--warn:#e4b65a;--bad:#ee8585;font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}body.light{color-scheme:light;--bg:#f2f5f7;--surface:#fff;--surface-2:#eaf0f3;--text:#172b3a;--muted:#596b78;--line:#ccd7de;--accent:#087f9b;--good:#147752;--warn:#896800;--bad:#af3434}
+    button,select{font:inherit;color:inherit;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px}button{cursor:pointer}button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+    .top{height:52px;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--line);background:var(--surface)}.top strong{margin-right:auto}.shell{display:grid;grid-template-columns:202px minmax(0,1fr);min-height:calc(100vh - 52px)}aside{border-right:1px solid var(--line);padding:20px 14px;background:var(--surface)}aside h2{font-size:13px;color:var(--muted);margin:0 8px 12px}aside div{padding:8px;border-radius:6px;color:var(--muted)}aside div.active{background:var(--surface-2);color:var(--text)}main{min-width:0;padding:24px clamp(16px,4vw,52px) 80px}.preview{position:fixed;z-index:10;bottom:0;left:0;right:0;padding:7px 12px;display:flex;gap:8px;align-items:center;background:var(--surface);border-top:1px solid var(--line);font-size:12px}.preview label{color:var(--muted)}.preview-note{margin-left:auto;color:var(--muted)}
+    @media(max-width:700px){.shell{grid-template-columns:1fr}aside{display:none}main{padding:16px 12px 80px}.top{padding:0 12px}.preview{flex-wrap:wrap}.preview-note{display:none}}
+  </style>
+</head>
+<body>
+  <header class="top"><strong>Home Assistant</strong><button id="theme" type="button">Toggle theme</button></header>
+  <div class="shell"><aside aria-label="Home Assistant navigation"><h2>Overview</h2><div>Home</div><div class="active">EV Charge Controller</div><div>Energy</div><div>Settings</div></aside><main id="mount"></main></div>
+  <section class="preview" aria-label="Preview controls">
+    <label for="scenario">Simulation</label>
+    <select id="scenario"><option value="normal">Normal</option><option value="partial">Partial prices</option><option value="missing">Missing power</option><option value="empty">No configured controller</option><option value="error">Registry unavailable</option><option value="disconnected">Disconnected</option><option value="second">Second controller</option></select>
+    <button id="delay" type="button" aria-pressed="false">Delay switch state</button><button id="ack" type="button">Acknowledge state</button><button id="reject" type="button">Reject next save</button><span class="preview-note">Simulated entities · local only</span>
+  </section>
+  <script type="module">
+    import '../../custom_components/ev_charge_controller/frontend/ev-charge-panel.js';
+
+    const entry='preview-controller';
+    const keys=['status','plan','mode','deadline','max_cheap_rate','target_percent','boost','hard_price_ceiling','monitoring_only','automatic_control','resume'];
+    const domains={status:'sensor',plan:'sensor',mode:'select',deadline:'datetime',max_cheap_rate:'number',target_percent:'number',boost:'switch',hard_price_ceiling:'switch',monitoring_only:'switch',automatic_control:'switch',resume:'button'};
+    const ids=Object.fromEntries(keys.map(key=>[key,`${domains[key]}.ev_charge_controller_${key}`]));
+    const secondEntry='second-controller';
+    const secondIds=Object.fromEntries(keys.map(key=>[key,`${domains[key]}.ev_charge_controller_second_${key}`]));
+    const params=new URLSearchParams(location.search);
+    if(params.get('theme')==='light')document.body.classList.add('light');
+    let selectedScenario=params.get('scenario')||'normal';
+    const states={};
+    const state=(key,value,attributes={})=>{const entity_id=ids[key];states[entity_id]={entity_id,state:String(value),attributes,last_updated:'2026-10-24T10:30:00Z',friendly_name:`EV Controller ${key.replaceAll('_',' ')}`};if(window.preview)preview.states[entity_id]=states[entity_id];if(window.hass)hass.states[entity_id]=states[entity_id];};
+    const start=Date.parse('2026-10-24T10:30:00Z');
+    const iso=value=>new Date(value).toISOString();
+    const prices=[1.28,1.08,-.18,1.35,.84,1.18,1.54,1.88,2.8,4,6,9,12,17,25,30,22,15,10,7,4,3,.47];
+    const rates=prices.map((price_pence,i)=>({start:iso(start+i*1800000),end:iso(start+(i+1)*1800000),price_pence}));
+    const schedule=rates.filter((_,i)=>i<8||i===22).map(slot=>({...slot,grid_energy_kwh:2.76}));
+    let forecastSoc=61,forecastCost=0;
+    const forecast_series=[{time:iso(start),soc:forecastSoc,cost:forecastCost}];
+    for(const slot of schedule){forecast_series.push({time:slot.start,soc:forecastSoc,cost:forecastCost});forecastSoc+=2.76*.92/1.1/60*100;forecastCost+=2.76*slot.price_pence/100;forecast_series.push({time:slot.end,soc:forecastSoc,cost:forecastCost});}
+    const attrs={friendly_name:'Demo EV Status',reason:'Charging in the selected window.',observed_charging:true,observed_switch:true,problem:false,price_pence:1.28,price_valid:true,soc:61,car_limit:100,requested_target:100,power_kw:5.52,current_amps:24,power_basis:'Current amps × configured voltage',home:true,connected:true,provisional:false,tariff:'AGILE',estimated_cost:.26,shortfall:4,estimated_completion:null,managed_tariff:true};
+    function reset(){state('status','Charging confirmed',{...attrs});state('plan','ready',{schedule,forecast_schedule:schedule,forecast_series,rates,forecast_soc:96,forecast_cost:.26,forecast_grid_energy_kwh:24.84,forecast_shortfall_kwh:2.62,forecast_completion:null,forecast_target:100,forecast_horizon_end:'2026-10-24T22:00:00Z',forecast_basis:'Projection follows the selected plan at 24 A.',rates_complete:false,rates_warning:'Some future prices are unavailable.'});state('mode','deadline');state('deadline','2026-10-25T08:00:00Z');state('max_cheap_rate','2');state('target_percent','100');for(const key of ['boost','hard_price_ceiling','monitoring_only'])state(key,'off');state('automatic_control','on');state('resume','unknown');}
+    reset();
+    if(selectedScenario==='second')addSecondController();
+    function addSecondController(){for(const key of keys){const value=key==='status'?'Waiting for selected slot':key==='plan'?'ready':key==='mode'?'cheap_top_up':key==='deadline'?'':key==='max_cheap_rate'?'6':key==='target_percent'?'70':key==='automatic_control'?'on':'off';const attributes=key==='status'?{...attrs,soc:43,requested_target:70,reason:'Second EV controller is waiting for a cheap rate.'}:key==='plan'?{...states[ids.plan].attributes,forecast_soc:70,forecast_target:70}:{};states[secondIds[key]]={entity_id:secondIds[key],state:value,attributes,friendly_name:`Second EV ${key.replaceAll('_',' ')}`};}}
+    const registry=()=>[...keys.map(key=>({entity_id:ids[key],platform:'ev_charge_controller',config_entry_id:entry,unique_id:`${entry}_${key}`})),...(selectedScenario==='second'?keys.map(key=>({entity_id:secondIds[key],platform:'ev_charge_controller',config_entry_id:secondEntry,unique_id:`${secondEntry}_${key}`})):[]),...(window.preview?.extraRegistryEntries||[])];
+    const callbacks=new Set();
+    window.pendingEntityStates=[];
+    window.deferStateAck=false;
+    window.serviceCalls=[];
+    window.preview={states,registry,callbacks,selectedScenario,entry,ids,discoveryCalls:0,registryCompleteCalls:0,registryFails:selectedScenario==='error',delayFirstRegistry:selectedScenario==='inflight',extraRegistryEntries:[],replaceStatusSoc(soc){const id=ids.status;const old=hass.states[id];const newStates={...hass.states,[id]:{...old,attributes:{...old.attributes,soc}}};window.hass={...hass,states:newStates};this.states=newStates;panel.hass=window.hass;},replaceConnectionAndRecover(){this.registryFails=false;const nextConnection={subscribeMessage(callback){callbacks.add(callback);return Promise.resolve(()=>{callbacks.delete(callback);window.unsubscribeCalls++;});}};window.hass={...hass,connection:nextConnection};panel.hass=window.hass;},emit(entityId){for(const callback of callbacks)callback({event:{data:{entity_id:entityId,new_state:hass.states[entityId]}}});},refresh(){panel.hass={...hass,states:{...this.states}};}};
+    window.unsubscribeCalls=0;
+    window.hass={states,config:{time_zone:'Europe/London'},locale:{language:'en-GB'},themes:{darkMode:true},connection:{subscribeMessage(callback){callbacks.add(callback);return Promise.resolve(()=>{callbacks.delete(callback);window.unsubscribeCalls++;});}},callWS:async request=>{window.preview.discoveryCalls++;if(request?.type!=='config/entity_registry/list')throw new Error(`Unexpected WS method ${request?.type}`);if(window.preview.registryFails)throw new Error('Mock registry unavailable');const result=selectedScenario==='empty'?[]:registry();if(window.preview.delayFirstRegistry&&window.preview.discoveryCalls===1)await new Promise(resolve=>window.preview.releaseFirstRegistry=()=>resolve(result));window.preview.registryCompleteCalls++;return result;},callService:async(domain,service,data)=>{window.serviceCalls.push({domain,service,data});if(window.rejectNextSave&&service==='set_request'){window.rejectNextSave=false;throw new Error('Mock save rejected');}if(service==='set_request'){if(window.deferRequestAck)window.pendingRequest=data;else{for(const key of ['mode','max_cheap_rate','target_percent','deadline'])if(data[key]!==undefined)state(key,data[key]);if(data.hard_price_ceiling!==undefined)state('hard_price_ceiling',data.hard_price_ceiling?'on':'off');}}else if(service==='button.press'){state('resume','pressed');}else if(service==='turn_on'||service==='turn_off'){const key=Object.keys(ids).find(k=>ids[k]===data.entity_id);if(key){if(window.deferStateAck)pendingEntityStates.push([key,service==='turn_on'?'on':'off']);else state(key,service==='turn_on'?'on':'off');}}preview.refresh();}};
+    const panel=document.createElement('ev-charge-panel');
+    document.querySelector('#mount').append(panel);
+    panel.hass=window.hass;
+    window.panel=panel;
+    document.querySelector('#theme').onclick=()=>{document.body.classList.toggle('light');hass.themes={darkMode:!document.body.classList.contains('light')};preview.refresh();};
+    document.querySelector('#scenario').value=selectedScenario;
+    document.querySelector('#scenario').onchange=event=>{selectedScenario=event.target.value;preview.selectedScenario=selectedScenario;reset();if(selectedScenario==='second')addSecondController();if(selectedScenario==='partial'){const old=states[ids.plan];state('plan',old.state,{...old.attributes,rates_warning:'Tomorrow prices are not available yet.'});}if(selectedScenario==='missing'){const oldStatus=states[ids.status],oldPlan=states[ids.plan];state('status',oldStatus.state,{...oldStatus.attributes,power_kw:null,current_amps:null});state('plan',oldPlan.state,{...oldPlan.attributes,forecast_soc:null,forecast_cost:null,forecast_grid_energy_kwh:null,forecast_series:[]});}if(selectedScenario==='disconnected'){const old=states[ids.status];state('status','Unplugged',{...old.attributes,connected:false});}preview.refresh();};
+    document.querySelector('#delay').onclick=event=>{window.deferStateAck=!window.deferStateAck;event.currentTarget.setAttribute('aria-pressed',String(window.deferStateAck));};
+    window.deferRequestAck=false;
+    document.querySelector('#ack').onclick=()=>{for(const [key,value] of pendingEntityStates.splice(0))state(key,value);if(window.pendingRequest){for(const key of ['mode','max_cheap_rate','target_percent','deadline'])if(window.pendingRequest[key]!==undefined)state(key,window.pendingRequest[key]);if(window.pendingRequest.hard_price_ceiling!==undefined)state('hard_price_ceiling',window.pendingRequest.hard_price_ceiling?'on':'off');window.pendingRequest=null;}const current=states[ids.status];state('status','Charging confirmed',{...current.attributes,observed_charging:true,observed_switch:true});preview.refresh();};
+    document.querySelector('#delay').onclick=event=>{window.deferStateAck=!window.deferStateAck;window.deferRequestAck=window.deferStateAck;event.currentTarget.setAttribute('aria-pressed',String(window.deferStateAck));};
+    const iconPaths={
+      'mdi:cash-multiple':'M5,6H23V18H5V6M14,9A3,3 0 0,1 17,12A3,3 0 0,1 14,15A3,3 0 0,1 11,12A3,3 0 0,1 14,9M9,8A2,2 0 0,1 7,10V14A2,2 0 0,1 9,16H19A2,2 0 0,1 21,14V10A2,2 0 0,1 19,8H9M1,10H3V20H19V22H1V10Z',
+      'mdi:clock-outline':'M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12.5,7H11V13L16.25,16.15L17,14.92L12.5,12.25V7Z',
+      'mdi:bullseye-arrow':'M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12C22,10.84 21.79,9.69 21.39,8.61L19.79,10.21C19.93,10.8 20,11.4 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4C12.6,4 13.2,4.07 13.79,4.21L15.4,2.6C14.31,2.21 13.16,2 12,2M19,2L15,6V7.5L12.45,10.05C12.3,10 12.15,10 12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12C14,11.85 14,11.7 13.95,11.55L16.5,9H18L22,5H19V2M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12H16A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8V6Z',
+      'mdi:information':'M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M13,17H11V11H13V17M13,9H11V7H13V9Z',
+      'mdi:circle':'M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z',
+      'mdi:circle-outline':'M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z',
+      'mdi:menu':'M3,18H21V16H3V18M3,13H21V11H3V13M3,6V8H21V6H3Z',
+    };
+    // Official Material Design Icons paths, copied from https://github.com/Templarian/MaterialDesign-JS (Apache-2.0).
+    customElements.define('ha-icon',class extends HTMLElement{static observedAttributes=['icon'];connectedCallback(){this.render();}attributeChangedCallback(){this.render();}render(){const path=iconPaths[this.getAttribute('icon')];if(!path)return;this.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="width:var(--mdc-icon-size,22px);height:var(--mdc-icon-size,22px);fill:currentColor;display:block"><path d="${path}"></path></svg>`;}});
+    document.querySelector('#reject').onclick=()=>{window.rejectNextSave=true;};
+    if(params.get('capture')==='1'){document.querySelector('.preview').style.display='none';document.querySelector('.top').style.display='none';document.querySelector('main').style.padding='0';document.querySelector('.shell').style.minHeight='100vh';document.body.style.fontFamily='Roboto,Arial,sans-serif';}
+  </script>
+</body>
+</html>

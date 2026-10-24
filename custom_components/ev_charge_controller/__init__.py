@@ -10,7 +10,7 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, MODES, PLATFORMS
 from .coordinator import EVCoordinator
-from .frontend import async_setup_frontend
+from .frontend import async_setup_frontend, async_setup_panel, async_unload_panel_entry
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -59,10 +59,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up one controller; entity selection is validated by the config flow."""
     coordinator = EVCoordinator(hass, entry)
     entry.runtime_data = coordinator
+    platforms_started = False
     try:
         await coordinator.async_initialize()
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        platforms_started = True
+        await async_setup_panel(hass, entry.entry_id)
     except Exception:
+        if platforms_started:
+            await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
         await coordinator.async_shutdown()
         raise
     entry.async_on_unload(entry.add_update_listener(_async_reload))
@@ -78,4 +83,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
     await entry.runtime_data.async_shutdown()
+    async_unload_panel_entry(hass, entry.entry_id)
     return True

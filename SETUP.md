@@ -1,10 +1,10 @@
 # Entity connections
 
-Use the setup selectors to choose actual entities from your existing integrations. IDs vary by installation.
+During setup, select actual entities from your existing integrations. IDs vary by installation. The native EV Charging panel scopes its entity discovery to the selected integration entry; with multiple entries, use its entry selector to choose the vehicle and tariff configuration to view.
 
 | Field | Expected source |
 | --- | --- |
-| Charging switch | Tessie's charging control switch. |
+| Charging switch | Tesla/Tessie's charging control switch. |
 | Charging feedback | Binary sensor for active charging, separate from the switch. |
 | Charge cable | Binary sensor for physical connection. |
 | Location and home zone | Vehicle tracker and the zone where control is allowed. |
@@ -27,4 +27,6 @@ Initial cheap rate is 12p/kWh and planner target is 80%. Shared helpers are not 
 
 Ready-by values use Home Assistant's configured time zone. Ambiguous or nonexistent clock-change times require an explicit offset. Other modes ignore the stored deadline.
 
-The Schedule tab saves request values together. The same `ev_charge_controller.set_request` action is available in Developer Tools. No additional credentials or administrator token are required.
+The Schedule tab lets you draft one of the three modes, target, ready-by time, maximum cheap rate and hard ceiling. Saving applies the request fields together; resetting restores the saved request. Boost is a separate immediate action. Pause and resume apply to automatic control, while Monitoring only keeps the integration from issuing charging commands. The panel displays requested amps from Tesla/Tessie as read-only information; change current there for the plan to recalculate.
+
+No additional credentials or administrator token are required. The sidebar panel appears after installation and a Home Assistant restart. After an HACS update, restart Home Assistant and refresh the browser.

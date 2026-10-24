@@ -1,3 +1,5 @@
+# Optional legacy Lovelace example. The integration provides an automatic
+# EV Charging sidebar panel at /ev-charging after a Home Assistant restart.
 title: EV Charging
 views:
   - title: Overview

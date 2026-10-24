@@ -11,3 +11,4 @@ dist/
 .DS_Store
 node_modules
 tests/frontend/artifacts/
+/design-qa.md
