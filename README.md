@@ -34,6 +34,8 @@ The repository must be public for HACS. New published releases appear as updates
 
 For an existing manual installation, HACS manages the same component directory and domain. Do not remove and recreate the integration. See [migration](MIGRATION.md).
 
+The configured controller appears under **Settings → Devices & services → Integrations → EV Charge Controller**. Versions up to 0.3.0 classified it as a Helper, which hid it from the Integrations tab; update to 0.3.1 or later and restart Home Assistant to correct this. The existing controller and its settings are retained.
+
 For manual installation, copy the release archive's `custom_components/ev_charge_controller` folder into your configuration's `custom_components` folder and restart Home Assistant. Copy only this integration folder.
 
 ## Model and control
